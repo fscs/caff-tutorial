@@ -1,0 +1,109 @@
+Signieren von Schlüsseln mit `caff`
+===================================
+
+`caff` ist ein Tool um das Signieren von Schlüsseln nach einer Key-Signing-Party zu vereinfachen.
+Nach einer kurzen Konfiguration kann man `caff` eine Liste von Schlüsseln geben, die signiert werden sollen, `caff` lädt diese dann von einem Key-Server herunter, fragt für jeden einzelnen Schlüssel nach, ob man ihn wirklich signieren möchte und verschickt die erstellte Signatur anschließend (verschlüsselt) per E-Mail an den Besitzer des Schlüssels.
+
+`caff` ist bei Debian (und Derivaten wie Ubuntu, Kubuntu, Xubuntu, Linux Mint etc) im Paket `signing-party` enthalten.
+Der Quellcode kann auf <http://pgp-tools.alioth.debian.org/> heruntergeladen werden.
+
+Konfiguration von `caff`
+------------------------
+
+Bevor `caff` verwendet werden kann, muss es konfiguriert werden.
+Dazu muss die Datei `~/.caffrc` mit dem folgenden Inhalt angelegt werden:
+
+    $CONFIG{'owner'} = q{Knut Knutsen};
+    $CONFIG{'email'} = q{knut@hhu-fscs.de};
+    $CONFIG{'keyid'} = [ qw{1234567890ABCDEF} ];
+
+Dabei muss natürlich `Knut Knutsen` und `knut@hhu-fscs.de` durch den eigenen Namen und die eigene E-Mail-Adresse ausgetauscht werden. Ebenso muss `1234567890ABCDEF` durch die eigene KeyID (die letzten 16 Zeichen des Fingerprints) ausgetauscht werden. Möchte man nicht nur einen sondern direkt mehrere Schlüssel zum Signieren verwenden, so kann man mehrere KeyIDs mit Leerzeichen getrennt angeben: `$CONFIG{'keyid'} = [ qw{1234567890ABCDEF ABCDEF1234567890} ];`
+
+Hat man auf dem eigenen Computer keinen lokalen Mailserver installiert, den `caff` zum Verschicken der Schlüssel benutzen könnte, muss man einen anderen Mailserver in `caff` konfigurieren:
+
+    $CONFIG{'mailer-send'} =  [ 'smtps', Server => 'mail.hhu-fscs.de', Auth => ['knut@hhu-fscs.de', 'ichlieberatty'] ];
+
+Dabei müssen die Daten natürlich wieder durch den eigenen Mailserver (`mail.hhu-fscs.de`), Benutzernamen (`knut@hhu-fscs.de`) und Passwort (`ichlieberatty`) ausgetauscht werden. Ebenso müssen zwei Perl-Bibliotheken instaliert werden: `Mail::Mailer` und `Authen::SASL`, diese sind bei Debian in den Paketen `libmailtools-perl` und `libauthen-sasl-perl` enthalten.
+
+Signieren von Schlüsseln mit `caff`
+-----------------------------------
+
+Nachdem `caff` konfiguriert ist und man bei der Key-Signing-Party gewesen ist, kann man die Schlüssel in Ruhe zuhause mit `caff` signieren und verschicken. Dazu ruft man einfach
+
+    caff KeyID1 KeyID2 KeyID3 ...
+
+auf (dabei sind die `KeyID`s natürlich mit den zu signierenden KeyIDs auszutauschen). `caff` wird nun versuchen die angegebenen Schlüssel von einem Schlüsselserver herunterzuladen und zum Signieren anzubieten. Möchte man lieber die Schlüssel aus einer (vom Veranstalter der Key-Signing-Party zur Verfügung gestellten) Datei importieren anstatt sie herunterzuladen, so ruft man
+
+    caff --no-download --key-file Datei KeyID1 KeyID2 KeyID3 ...
+
+auf, wobei `Datei` der Dateiname der Datei mit den Schlüsseln ist.
+
+`caff` wird für jeden einzelnen Schlüssel fragen, ob man ihn wirklich signieren möchte:
+
+    pub  4096R/333961E8  created: 2009-05-10  expires: never       usage: SC  
+    sub  4096R/022DE268  created: 2009-05-10  expires: never       usage: E   
+    [ unknown] (1). Evgeni Golov <evgeni@golov.de>
+    [ unknown] (2)  Evgeni Golov <sargentd@die-welt.net>
+    [ unknown] (3)  Evgeni Golov (Debian) <evgeni@debian.org>
+
+    Really sign all user IDs? (y/N) y
+
+    pub  4096R/333961E8  created: 2009-05-10  expires: never       usage: SC  
+    sub  4096R/022DE268  created: 2009-05-10  expires: never       usage: E
+     Primary key fingerprint: C575 A957 E819 BA18 BF07  E766 A1B0 9B42 3339 61E8
+
+         Evgeni Golov <evgeni@golov.de>
+         Evgeni Golov <sargentd@die-welt.net>
+         Evgeni Golov (Debian) <evgeni@debian.org>
+
+    Are you sure that you want to sign this key with your
+    key "Knut Knutsen <knut@hhu-fscs.de" (90ABCDEF)
+
+    Really sign? (y/N) y
+    
+    You need a passphrase to unlock the secret key for
+    user: "Knut Knutsen <knut@hhu-fscs.de>"
+    2048-bit RSA key, ID 90ABCDEF, created 2012-01-01
+
+    gpg> save
+    [INFO]  1 Evgeni Golov <evgeni@golov.de> done.
+    [INFO]  2 Evgeni Golov <sargentd@die-welt.net> done.
+    [INFO]  3 Evgeni Golov (Debian) <evgeni@debian.org> done.
+    [INFO] key 333961E8 done.
+
+danach wird `caff` fragen, ob man die signierten Schlüssel per E-Mail verschicken möchte. Falls man nicht gefragt werden will, aber dennoch die Schlüssel per E-Mail verschicken möchte, kann man beim Aufrufen von `caff` den Parameter `--mail yes` angeben.
+
+    Mail signature for Evgeni Golov <evgeni@golov.de> to 'evgeni@golov.de'? [Y/n] Y
+    Mail signature for Evgeni Golov <sargentd@die-welt.net> to 'sargentd@die-welt.net'? [Y/n] Y
+    Mail signature for Evgeni Golov (Debian) <evgeni@debian.org> to 'evgeni@debian.org'? [Y/n] Y
+
+Signieren von Schlüsseln aus einer Liste mit `caff`
+---------------------------------------------------
+
+Oft ist die Liste der Teilnehmer einer Key-Signing-Party recht lang und man möchte nicht alle KeyIDs von Hand abtippen.
+Stattdessen kann man auch die Teilnehmerliste "direkt" an `caff` übergeben:
+
+    caff `grep 'Key fingerprint =' Teilnehmerliste.txt |sed 's#.*=##;s# ##g'`
+
+Signieren von vielen Schlüsseln mit `caff`
+------------------------------------------
+
+Ist die Liste der zu signierenden Schlüssel sehr lang, so kann es mitunter sehr nervig und vorallem fehleranfällig sein, die Passphrase des eigenen Schlüssels (oder gar der eigenen Schlüssel) bei jedem fremden Schlüssel neu eingeben zu müssen. Eine Abhilfe schaffen so genannte GnuPG Agenten. Diese erlauben es die Passphrase zwischenzuspeichern und für mehrere Aktionen zu verwenden.
+
+Ob ein GnuPG Agent bereits auf dem System aktiv ist, kann man herausfinden, indem man folgendes ausführt:
+
+    env |grep GPG_AGENT_INFO
+
+Gibt es eine Aufgabe der Form `GPG_AGENT_INFO=/home/knut/.cache/keyring-ABEEF/gpg:0:1` oder so ähnlich, so ist bereits ein Agent aktiv und `caff` muss nur noch konfiguriert werden ihn zu nutzen.
+Dies ist zum Beispiel bei GNOME der Fall, wo ein GnuPG Agent in den GNOME Keyring integriert ist.
+
+Falls auf dem System noch kein GnuPG Agent verfügbar ist, so kann dieser sehr einfach nachinstalliert werden.
+Unter Debian (und Derivaten) installiert man dazu das Paket `gnupg-agent` und entweder `pinentry-gtk2` (wenn man Xfce, LXDE o.ä. nutzt) oder `pinentry-qt4` (KDE).
+Danach loggt man sich einmal aus und wieder ein, und schon sollte `env |grep GPG_AGENT_INFO` die gewünschte Ausgabe hervorbringen.
+
+Nachdem ein GnuPG Agent installiert und verfügbar ist, muss `caff` konfiguriert werden.
+Dazu muss lediglich die Zeile
+
+    use-agent
+
+in die Datei `~/.caff/gnupghome/gpg.conf` eingetragen werden. Falls diese Datei noch nicht existiert, so kann sie einfach erstellt werden. Falls auch der Ordner noch nicht existiert, so kann dieser auch einfach angelegt werden. Bei der Erstellung sollte allerdings darauf geachtet werden, dass die Rechte für die Datei `0600` und für den Ordner `0700` (also Besitzer darf alles, der Rest nichts) sind, da GnuPG sonst den Dienst verweigert.
